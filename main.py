@@ -67,10 +67,17 @@ def sh():
     elif command[:5] == "touch":
         file = command[6:]
         touch(file)
+    elif command == "help":
+        help()
+    elif command == "":
+        sh()
     elif command == "date":
         date()
     elif command == "exit":
         exit()
+    elif command[0] == "!":
+        exec = command[1:]
+        local_bin(exec)
     else:
         print("127 | Command not found : %s" % command)
         sh()
@@ -169,6 +176,22 @@ def touch(file):
 def date():
     now = datetime.now()
     print(now)
+    sh()
+
+
+# Local binary execution
+def local_bin(binary):
+    os.system(binary)
+    sh()
+
+
+# Help
+def help():
+    print("Welcome to PySH, a UNIX-like shell written entirely in Python.\nAvailable commands:\nhelp: prints this "
+          "help\nls <dir>: shows a directory listing\necho <str>: prints text\ncd <dir>: changes the current working "
+          "directory\n!<binary>: executes a local binary.\ndate: shows date and time.\ntouch <file>: creates "
+          "files\nmkdir <dir>: creates a directory\nrm <file,directory>: removes files/directories\npwd: shows the "
+          "path of the current working directory\nversion: shows the version of PySH")
     sh()
 
 
