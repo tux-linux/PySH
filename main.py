@@ -1,9 +1,10 @@
-# Python Shell (PySH) by Nicolas Mailloux. Designed entirely in Python, with UNIX philosophy in mind.
-# The programs included in this project are free software.
+# Python Shell (PySH) by Nicolas Mailloux. Designed entirely in Python, with UNIX philosophy in mind. Includes
+# several base utility programs. The programs included in this project are free software.
 # PySH comes with ABSOLUTELY NO WARRANTY, to the extent permitted by applicable law.
 
 from datetime import datetime
 from datetime import date
+from shutil import copyfile
 import getpass
 import socket
 import pathlib
@@ -29,7 +30,7 @@ print("It is {0} | {1}\n".format(date, time))
 def sh():
     # Get current directory
     current_dir = pathlib.Path().absolute()
-    command = input("{0}@{1}:{2} $ ".format(user, hostname, current_dir))
+    command = input("\033[96;1m{0}\033[0m@{1}:\033[1m{2}\033[0m $ ".format(user, hostname, current_dir))
     if command == "version":
         get_version()
     elif command == "pwd":
@@ -37,10 +38,19 @@ def sh():
     elif command[:2] == "ls" or command[:2] == "dir":
         comlen = len(command)
         if comlen >= 4:
-            directory = command[3:]
-            ls_dir(directory)
+            if command[:4] == "ls -":
+                if command[4] == "a":
+                    if comlen == 5:
+                        ls("TRUE")
+                    else:
+                        directory = command[6:]
+                        ls_dir(directory, "TRUE")
+            else:
+                directory = command[3:]
+                ls_dir(directory, "FALSE")
+
         else:
-            ls()
+            ls("FALSE")
     elif command[:2] == "cd":
         comlen = len(command)
         if comlen >= 4:
@@ -73,13 +83,55 @@ def sh():
         sh()
     elif command == "date":
         date()
+    elif command[:2] == "cp":
+        comlen = len(command)
+        if command == "cp":
+            print("\033[91;1m1\033[0m | Missing source and/or destination")
+            sh()
+        if comlen >= 4:
+            s = command.split()
+            slen = len(s)
+            if slen == 2:
+                print("\033[91;1m1\033[0m | Missing source and/or destination")
+                sh()
+            elif slen >= 4:
+                print("\033[91;1m1\033[0m | Too many arguments")
+                sh()
+            elif slen == 3:
+                source_file = s[1]
+                copied_file = s[2]
+                cp(source_file, copied_file)
+    elif command[:3] == "cat":
+        comlen = len(command)
+        s = command.split()
+        slen = len(s)
+        if comlen == 3:
+            print("\033[91;1m1\033[0m | Missing file")
+            sh()
+        elif slen >= 3:
+            print("\033[91;1m1\033[0m | Too many arguments")
+            sh()
+        else:
+            printfile = s[1]
+            if os.path.exists(printfile):
+                file = open(printfile)
+                line = file.read()
+                file.close()
+                print(line)
+            else:
+                print("\033[91;1m1\033[0m | No such file or directory")
+            # print("cat is not usable at the moment due to a bug. Please check the GitHub page for updates on the project.")
+            sh()
+            # cat(printfile)
     elif command == "exit":
         exit()
+    # To be changed to analysing PATH and executing the correct binary if not present in the shell. If user still
+    # doesn't want to run the included bundle, then specifying "!" in front of the command will run the local binary.
     elif command[0] == "!":
         exec = command[1:]
         local_bin(exec)
     else:
-        print("127 | Command not found : %s" % command)
+        print("\033[91;1m127\033[0m | Command not found : %s" % command)
         sh()
 
 
@@ -98,22 +150,48 @@ def pwd():
 
 
 # Directory listing
-def ls():
-    for x in os.listdir('.'):
-        print(x)
+def ls(list_all):
+    current_dir = pathlib.Path().absolute()
+    if os.path.exists(current_dir):
+        if list_all == "TRUE":
+            for x in os.listdir():
+                print(x)
+        else:
+            for x in os.listdir('.'):
+                if x[0] == ".":
+                    pass
+                else:
+                    print(x)
+    else:
+        print("\033[91;1m1\033[0m | No such file or directory")
     sh()
 
 
 # Directory listing from path
-def ls_dir(dir):
+def ls_dir(dir, list_all):
     if dir == "~":
         from pathlib import Path
         home = str(Path.home())
         for x in os.listdir(home):
-            print(x)
+            if list_all == "TRUE":
+                print(x)
+            else:
+                if x[0] == ".":
+                    pass
+                else:
+                    print(x)
     else:
-        for x in os.listdir(dir):
-            print(x)
+        if os.path.exists(dir):
+            for x in os.listdir(dir):
+                if list_all == "TRUE":
+                    print(x)
+                else:
+                    if x[0] == ".":
+                        pass
+                    else:
+                        print(x)
+        else:
+            print("\033[91;1m1\033[0m | No such file or directory")
     sh()
 
 
@@ -124,7 +202,10 @@ def cd(dir):
         home = str(Path.home())
         os.chdir(home)
     else:
-        os.chdir(dir)
+        if os.path.exists(dir):
+            os.chdir(dir)
+        else:
+            print("\033[91;1m1\033[0m | No such file or directory")
     sh()
 
 
@@ -146,7 +227,7 @@ def rm(file):
         os.remove(file)
         sh()
     else:
-        print("1 | File or folder not found : %s" % dir)
+        print("\033[91;1m1\033[0m | File or folder not found : %s" % dir)
         sh()
 
 
@@ -155,7 +236,7 @@ def rm_dir(dir):
         os.rmdir(dir)
         sh()
     else:
-        print("1 | File or folder not found : %s" % dir)
+        print("\033[91;1m1\033[0m | File or folder not found : %s" % dir)
         sh()
 
 
@@ -185,13 +266,32 @@ def local_bin(binary):
     sh()
 
 
+# File copy
+def cp(source, destination):
+    copyfile(source, destination)
+    sh()
+
+
+# Print a file's contents //// NOT WORKING
+"""
+def cat(print):
+    file = open(print)
+    line = file.read()
+    file.close()
+    print(line)
+    sh()
+"""
+
+
 # Help
 def help():
-    print("Welcome to PySH, a UNIX-like shell written entirely in Python.\nAvailable commands:\nhelp: prints this "
+    print("\033[94;1mWelcome to PySH, an UNIX-like, cross-platform shell written entirely in Python.\033["
+          "0m\nAvailable commands:\nhelp: prints this "
           "help\nls <dir>: shows a directory listing\necho <str>: prints text\ncd <dir>: changes the current working "
           "directory\n!<binary>: executes a local binary.\ndate: shows date and time.\ntouch <file>: creates "
-          "files\nmkdir <dir>: creates a directory\nrm <file,directory>: removes files/directories\npwd: shows the "
-          "path of the current working directory\nversion: shows the version of PySH")
+          "files\ncat: prints a file's content\nmkdir <dir>: creates a directory\nrm <file,directory>: removes "
+          "files/directories\ncp: copies "
+          "files\npwd: shows the path of the current working directory\nversion: shows the version of PySH")
     sh()
 
 
